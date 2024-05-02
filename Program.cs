@@ -15,6 +15,7 @@ using Arduino.Services;
 using WebSample;
 using Hangfire.JobsLogger;
 using Hangfire.SqlServer;
+using System.Configuration;
 
 
 
@@ -76,13 +77,6 @@ builder.Services.AddHangfireServer(options =>
 {
     options.Queues = new[] { "Arduino", "default" };
 });
-
-
-
-
-RecurringJob.AddOrUpdate("TaskMethod()", (TaskSample t) => t.TaskMethod(), "42 17 * * *", TimeZoneInfo.Local);
-RecurringJob.AddOrUpdate("TaskMethodEnd()", (TaskSample t) => t.TaskMethodEnd(), "43 17 * * *",TimeZoneInfo.Local);
-
 #endregion
 
 builder.Services.AddControllers();
@@ -99,6 +93,30 @@ builder.Services.AddTransient<IArduinoService, ArduinoService>();
 
 builder.Services.AddDbContext<CTRLArduinoContext>(options =>
     options.UseSqlite(connectionLite));
+
+#region AddJobs
+
+bool useCOM3 = configuration.GetValue<bool>("UseCOM3");
+List<string> OnOffList = configuration.GetSection("OnOffList").Get<List<string>>();
+foreach (string sched in OnOffList)
+{
+    if (!string.IsNullOrEmpty(sched))
+    {
+        var s= sched.Split(';');
+        var cronArray = s[1].Split(" ");
+        string cron = s[1];
+        string cronF = $"{(int.Parse(cronArray[0]) + int.Parse(s[2])).ToString()} {cronArray[1]} {cronArray[2]} {cronArray[3]} {cronArray[4]}";
+
+        Ardcommand  ardcommand = new Ardcommand() { command="on", vlnumber = int.Parse(s[0]), seconds=0 };
+        RecurringJob.AddOrUpdate($"{s[3]}.Send", (ArduinoService t) => t.Send(ardcommand, useCOM3), cron, TimeZoneInfo.Local);
+
+        ardcommand.command = "off"; 
+        RecurringJob.AddOrUpdate($"{s[3]}.Stop", (ArduinoService t) => t.Send(ardcommand, useCOM3), cronF, TimeZoneInfo.Local);
+
+
+    }
+}
+#endregion
 
 
 var app = builder.Build();

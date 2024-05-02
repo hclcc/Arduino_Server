@@ -14,16 +14,22 @@ namespace Arduino.Controllers
     {
         private IArduinoService _iArduinoService;
         private ILogActionsMethods _logActionsMethods;
+        private IConfiguration _configuration;
 
-        public ArduinoController(IArduinoService iArduinoService)
+        private bool useCOM3 = false;
+
+        public ArduinoController(IArduinoService iArduinoService, IConfiguration configuration)
         {
             _iArduinoService = iArduinoService;
+            _configuration = configuration;
+
+            useCOM3 = _configuration.GetValue<bool>("UseCOM3");
         }
         [HttpPost]
         [Route("Send")]
         public IActionResult Send(Ardcommand ardcommand)
         {
-            string result= _iArduinoService.Send(ardcommand);
+            string result= _iArduinoService.Send(ardcommand, useCOM3);
             if (result=="Ok")
                 return Ok();
             else
@@ -34,7 +40,7 @@ namespace Arduino.Controllers
         [Route("OnThenOff")]
         public IActionResult OnThenOff(Ardcommand ardcommand)
         {
-            _iArduinoService.OnThenOff(ardcommand);
+            _iArduinoService.OnThenOff(ardcommand, useCOM3);
             return Ok();
         }
     }

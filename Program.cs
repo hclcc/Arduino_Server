@@ -7,11 +7,14 @@ using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
 
 using Hangfire;
-using Hangfire.Server;
+using Hangfire.Heartbeat;
 using Hangfire.Storage.SQLite;
 
 using Arduino.Controllers;
 using Arduino.Services;
+using WebSample;
+using Hangfire.JobsLogger;
+using Hangfire.SqlServer;
 
 
 
@@ -56,11 +59,31 @@ var origins = configuration.GetSection("AllowedOrigins").Value
 //            .AllowAnyHeader());
 //});
 
-GlobalConfiguration.Configuration
+#region Hangfire
+
+builder.Services.AddHangfire(configuration => configuration
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UseSQLiteStorage(connectionLite);
+    .UseSQLiteStorage("Hangfire.db")
+    .UseHeartbeatPage(checkInterval: TimeSpan.FromSeconds(30))
+    .UseJobsLogger());
+
+
+JobStorage.Current = new SQLiteStorage("Hangfire.db");
+
+builder.Services.AddHangfireServer(options =>
+{
+    options.Queues = new[] { "Arduino", "default" };
+});
+
+
+
+
+RecurringJob.AddOrUpdate("TaskMethod()", (TaskSample t) => t.TaskMethod(), "42 17 * * *", TimeZoneInfo.Local);
+RecurringJob.AddOrUpdate("TaskMethodEnd()", (TaskSample t) => t.TaskMethodEnd(), "43 17 * * *",TimeZoneInfo.Local);
+
+#endregion
 
 builder.Services.AddControllers();
 
@@ -80,6 +103,7 @@ builder.Services.AddDbContext<CTRLArduinoContext>(options =>
 
 var app = builder.Build();
 app.UseSerilogRequestLogging();
+app.UseHangfireDashboard("/hangfire");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

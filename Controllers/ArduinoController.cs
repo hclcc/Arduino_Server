@@ -29,7 +29,8 @@ namespace Arduino.Controllers
         [Route("Send")]
         public IActionResult Send(Ardcommand ardcommand)
         {
-            string result= _iArduinoService.Send(ardcommand, useCOM3);
+            string result= _iArduinoService.Send(ardcommand, useCOM3); 
+            
             if (result=="Ok")
                 return Ok();
             else
